@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Support CRM</title>
+    <!-- Tailwind CSS for rapid UI styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-gray-50 text-gray-900 font-sans antialiased">
+  <div id="app" class="max-w-6xl mx-auto p-4 md:p-6">
+    
+    <!-- Navbar -->
+    <nav class="flex justify-between items-center py-4 mb-8 border-b border-gray-200">
+        <h1 class="text-2xl font-bold text-indigo-600 flex items-center cursor-pointer hover:text-indigo-700 transition" onclick="showView('list')">
+            <i data-lucide="life-buoy" class="mr-2"></i> Datastraw CRM
+        </h1>
+        <button onclick="showView('create')" class="bg-indigo-600 text-white px-5 py-2.5 rounded-lg hover:bg-indigo-700 transition shadow-sm font-medium flex items-center">
+            <i data-lucide="plus" class="mr-2 w-4 h-4"></i> New Ticket
+        </button>
+    </nav>
+
+    <!-- 1. List / Dashboard View -->
+    <div id="view-list" class="view-section transition-all duration-300">
+      <div class="flex gap-4 mb-6 flex-col md:flex-row">
+        <!-- Search -->
+        <div class="flex-1 relative">
+            <i data-lucide="search" class="absolute left-3 top-3 text-gray-400 w-5 h-5"></i>
+            <input type="text" id="searchInput" placeholder="Search by name, email, ID, or issue..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" oninput="debounceLoadTickets()">
+        </div>
+        <!-- Status Filter -->
+        <select id="statusFilter" class="px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white" onchange="loadTickets()">
+            <option value="">All Statuses</option>
+            <option value="Open">Open</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Closed">Closed</option>
+        </select>
+      </div>
+      
+      <!-- Tickets Table -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden overflow-x-auto">
+          <table class="min-w-full text-left border-collapse">
+              <thead>
+                  <tr class="bg-gray-50 border-b border-gray-100 text-sm">
+                      <th class="p-4 font-semibold text-gray-600">Ticket ID</th>
+                      <th class="p-4 font-semibold text-gray-600">Customer</th>
+                      <th class="p-4 font-semibold text-gray-600">Subject</th>
+                      <th class="p-4 font-semibold text-gray-600">Status</th>
+                      <th class="p-4 font-semibold text-gray-600">Date</th>
+                      <th class="p-4 font-semibold text-gray-600 text-right">Action</th>
+                  </tr>
+              </thead>
+              <tbody id="ticketsTableBody" class="divide-y divide-gray-100 text-sm">
+                  <!-- Rows injected via JavaScript -->
+              </tbody>
+          </table>
+      </div>
+    </div>
+
+    <!-- 2. Create Ticket View -->
+    <div id="view-create" class="view-section hidden max-w-2xl mx-auto bg-white p-6 md:p-8 rounded-xl shadow-sm border border-gray-100">
+        <h2 class="text-xl font-bold mb-6 text-gray-800 border-b pb-4">Create New Ticket</h2>
+        <form id="createForm" onsubmit="handleCreate(event)" class="space-y-5">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Customer Name</label>
+                    <input required type="text" id="cName" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Customer Email</label>
+                    <input required type="email" id="cEmail" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Issue Subject</label>
+                <input required type="text" id="cSubject" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Detailed Description</label>
+                <textarea required id="cDesc" rows="4" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"></textarea>
+            </div>
+            <div class="flex justify-end gap-3 pt-4 border-t">
+                <button type="button" onclick="showView('list')" class="px-5 py-2.5 text-gray-700 font-medium bg-gray-100 rounded-lg hover:bg-gray-200 transition">Cancel</button>
+                <button type="submit" class="bg-indigo-600 text-white font-medium px-6 py-2.5 rounded-lg hover:bg-indigo-700 transition shadow-sm">Submit Ticket</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- 3. Ticket Detail View -->
+    <div id="view-detail" class="view-section hidden bg-white p-6 md:p-8 rounded-xl shadow-sm border border-gray-100">
+        <button onclick="showView('list')" class="text-indigo-600 hover:text-indigo-800 font-medium mb-6 flex items-center transition">
+            <i data-lucide="arrow-left" class="w-4 h-4 mr-2"></i> Back to Ticket List
+        </button>
+        
+        <div id="detailContent" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left col: Content -->
+            <div class="lg:col-span-2 space-y-6">
+                <div>
+                    <div class="flex items-center gap-3 mb-2">
+                        <span id="dId" class="font-mono bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded text-sm font-bold"></span>
+                        <span id="dDate" class="text-sm text-gray-500"></span>
+                    </div>
+                    <h2 id="dSubject" class="text-2xl font-bold text-gray-900"></h2>
+                </div>
+                
+                <div class="flex items-center gap-4 border-y py-4">
+                    <div class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-bold">
+                        <i data-lucide="user"></i>
+                    </div>
+                    <div>
+                        <p class="font-semibold text-gray-900" id="dName"></p>
+                        <a id="dEmail" class="text-sm text-indigo-600 hover:underline"></a>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="font-semibold text-gray-900 mb-2">Issue Description</h3>
+                    <p id="dDesc" class="whitespace-pre-wrap text-gray-700 bg-gray-50 p-4 rounded-lg border border-gray-100 leading-relaxed"></p>
+                </div>
+                
+                <div class="pt-6">
+                    <h3 class="font-semibold text-gray-900 mb-4 flex items-center">
+                        <i data-lucide="message-square" class="w-4 h-4 mr-2 text-gray-500"></i> Interaction Notes
+                    </h3>
+                    <div id="dNotesList" class="space-y-4 mb-6"></div>
+                    <textarea id="newNote" rows="3" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="Type a new internal note or update..."></textarea>
+                </div>
+            </div>
+            
+            <!-- Right col: Management Sidebar -->
+            <div>
+                <div class="bg-gray-50 p-5 rounded-xl border border-gray-200 sticky top-4">
+                    <h3 class="font-semibold text-gray-900 mb-4">Manage Ticket</h3>
+                    <div class="mb-5">
+                        <label class="block text-sm text-gray-700 mb-2 font-medium">Update Status</label>
+                        <select id="updateStatus" class="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white">
+                            <option value="Open">Open</option>
+                            <option value="In Progress">In Progress</option>
+                            <option value="Closed">Closed</option>
+                        </select>
+                    </div>
+                    <button onclick="handleUpdate()" class="w-full bg-indigo-600 text-white font-medium py-2.5 rounded-lg hover:bg-indigo-700 transition shadow-sm flex items-center justify-center">
+                        <i data-lucide="save" class="w-4 h-4 mr-2"></i> Save Changes
+                    </button>
+                    <p id="updateMsg" class="text-sm text-green-600 text-center mt-3 hidden">Ticket updated successfully!</p>
+                </div>
+            </div>
+        </div>
+    </div>
+  </div>
+
+  <script>
+    // Initialize Icons
+    lucide.createIcons();
+
+    let currentTicketId = null;
+    let debounceTimer;
+
+    // View Routing
+    function showView(viewId) {
+        document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+        document.getElementById('view-' + viewId).classList.remove('hidden');
+        if (viewId === 'list') {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('statusFilter').value = '';
+            loadTickets();
+        }
+    }
+
+    function debounceLoadTickets() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(loadTickets, 300);
+    }
+
+    // 1. Fetch & Render Tickets
+    async function loadTickets() {
+        const search = document.getElementById('searchInput').value;
+        const status = document.getElementById('statusFilter').value;
+        
+        let url = '/api/tickets?';
+        if (search) url += `search=${encodeURIComponent(search)}&`;
+        if (status) url += `status=${encodeURIComponent(status)}`;
+
+        try {
+            const res = await fetch(url);
+            const tickets = await res.json();
+            const tbody = document.getElementById('ticketsTableBody');
+            tbody.innerHTML = '';
+            
+            if(tickets.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-gray-500">No tickets found. Try adjusting your search.</td></tr>`;
+                return;
+            }
+
+            tickets.forEach(t => {
+                let badgeColor = '';
+                if (t.status === 'Open') badgeColor = 'bg-red-100 text-red-700';
+                else if (t.status === 'In Progress') badgeColor = 'bg-yellow-100 text-yellow-700';
+                else badgeColor = 'bg-emerald-100 text-emerald-700';
+                
+                tbody.innerHTML += `
+                    <tr class="hover:bg-indigo-50 cursor-pointer transition" onclick="loadDetail('${t.ticket_id}')">
+                        <td class="p-4 font-mono font-medium text-indigo-600">${t.ticket_id}</td>
+                        <td class="p-4 font-medium text-gray-800">${t.customer_name}</td>
+                        <td class="p-4 text-gray-600 truncate max-w-xs">${t.subject}</td>
+                        <td class="p-4"><span class="px-2.5 py-1 rounded-md text-xs font-bold tracking-wide ${badgeColor}">${t.status}</span></td>
+                        <td class="p-4 text-gray-500">${new Date(t.created_at).toLocaleDateString()}</td>
+                        <td class="p-4 text-right text-indigo-600 hover:text-indigo-800 font-medium">Manage &rarr;</td>
+                    </tr>
+                `;
+            });
+        } catch (error) {
+            console.error("Failed to load tickets", error);
+        }
+    }
+
+    // 2. Submit New Ticket
+    async function handleCreate(e) {
+        e.preventDefault();
+        const data = {
+            customer_name: document.getElementById('cName').value,
+            customer_email: document.getElementById('cEmail').value,
+            subject: document.getElementById('cSubject').value,
+            description: document.getElementById('cDesc').value
+        };
+
+        try {
+            const res = await fetch('/api/tickets', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            if (res.ok) {
+                document.getElementById('createForm').reset();
+                showView('list');
+            } else {
+                alert("Failed to create ticket.");
+            }
+        } catch (error) {
+            console.error("Error creating ticket", error);
+        }
+    }
+
+    // 3. Load Details & Notes
+    async function loadDetail(ticketId) {
+        try {
+            const res = await fetch(`/api/tickets/${ticketId}`);
+            if (!res.ok) return alert("Ticket not found");
+            const t = await res.json();
+            
+            currentTicketId = t.ticket_id;
+            document.getElementById('dSubject').innerText = t.subject;
+            document.getElementById('dId').innerText = t.ticket_id;
+            document.getElementById('dDate').innerText = new Date(t.created_at).toLocaleString();
+            document.getElementById('dName').innerText = t.customer_name;
+            document.getElementById('dEmail').innerText = t.customer_email;
+            document.getElementById('dEmail').href = `mailto:${t.customer_email}`;
+            document.getElementById('dDesc').innerText = t.description;
+            document.getElementById('updateStatus').value = t.status;
+            
+            const notesContainer = document.getElementById('dNotesList');
+            notesContainer.innerHTML = '';
+            if (t.notes && t.notes.length > 0) {
+                t.notes.forEach(n => {
+                    notesContainer.innerHTML += `
+                        <div class="bg-indigo-50 border border-indigo-100 p-4 rounded-lg text-sm text-gray-800">
+                            <p class="text-indigo-500 font-medium text-xs mb-1">${new Date(n.created_at).toLocaleString()}</p>
+                            <p>${n.text}</p>
+                        </div>
+                    `;
+                });
+            } else {
+                notesContainer.innerHTML = '<p class="text-sm text-gray-400 italic bg-gray-50 p-4 rounded-lg border border-dashed">No updates or notes have been added to this ticket yet.</p>';
+            }
+            
+            document.getElementById('newNote').value = '';
+            document.getElementById('updateMsg').classList.add('hidden');
+            showView('detail');
+        } catch (error) {
+            console.error("Error loading details", error);
+        }
+    }
+
+    // 4. Update Status and Add Notes
+    async function handleUpdate() {
+        if (!currentTicketId) return;
+        
+        const data = {
+            status: document.getElementById('updateStatus').value,
+            notes: document.getElementById('newNote').value || null
+        };
+        
+        try {
+            const res = await fetch(`/api/tickets/${currentTicketId}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            
+            if (res.ok) {
+                const msg = document.getElementById('updateMsg');
+                msg.classList.remove('hidden');
+                setTimeout(() => msg.classList.add('hidden'), 3000);
+                loadDetail(currentTicketId); // Reload to show new note in timeline
+            } else {
+                alert("Failed to update ticket.");
+            }
+        } catch (error) {
+            console.error("Error updating ticket", error);
+        }
+    }
+
+    // Initialize UI on load
+    loadTickets();
+  </script>
+</body>
+</html>
